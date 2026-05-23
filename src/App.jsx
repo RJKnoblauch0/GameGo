@@ -18,7 +18,7 @@ const MOCK_USERS = [
 
 // For demo: switch index to test different roles
 // 0=Club Admin, 1=Coach Marcus, 2=Asst Coach Priya, 3=Manager Tom, 4=Rosa(parent/Jamie), 5=Luis(parent/Sam — 2 teams)
-const MOCK_USER = MOCK_USERS[1];
+const MOCK_USER = MOCK_USERS[0];
 
 const MOCK_TEAMS = [
   { id: 1, name: "U12 Lions",   ageGroup: "U12", gender: "Boys",  coachName: "Coach Marcus", settings: { trackPositions: true } },
