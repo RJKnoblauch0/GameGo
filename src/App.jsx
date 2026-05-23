@@ -4,23 +4,51 @@ import { useState, useRef } from "react";
 
 const MOCK_CLUB = { id: 1, name: "Riverview Soccer Club", location: "Pittsburgh, PA" };
 
-// Users linked to players (guardians) or staff records
-// userId on a player = the guardian who manages that player's profile photo
-// userId on a staff  = the staff member themselves
+// teamIds: all teams this user is associated with (as staff or via their players)
+// staffId: links to MOCK_STAFF record (coaches/managers)
+// playerIds: links to MOCK_PLAYERS this parent/guardian manages
 const MOCK_USERS = [
-  { id: 1,  name: "Coach Marcus",  phone: "+14125550101", role: "coach",    teamId: 1, staffId: 101 },
-  { id: 2,  name: "Rosa Torres",   phone: "+14125550201", role: "parent",   teamId: 1, playerIds: [1] },
-  { id: 3,  name: "Luis Rivera",   phone: "+14125550202", role: "parent",   teamId: 1, playerIds: [2] },
-  { id: 4,  name: "Priya Sharma",  phone: "+14125550102", role: "assistantCoach", teamId: 1, staffId: 102 },
+  { id: 1, name: "Sarah Mitchell", phone: "+14125550100", role: "clubAdmin",      teamIds: [1,2,3], email: "sarah@riverview.org" },
+  { id: 2, name: "Marcus Webb",    phone: "+14125550101", role: "coach",          teamIds: [1],     staffId: 101, email: "marcus@riverview.org" },
+  { id: 3, name: "Priya Sharma",   phone: "+14125550102", role: "assistantCoach", teamIds: [1],     staffId: 102, email: "priya@riverview.org" },
+  { id: 4, name: "Tom Gallagher",  phone: "+14125550103", role: "manager",        teamIds: [1],     staffId: 103, email: "tom@riverview.org" },
+  { id: 5, name: "Rosa Torres",    phone: "+14125550201", role: "parent",         teamIds: [1],     playerIds: [1] },
+  { id: 6, name: "Luis Rivera",    phone: "+14125550202", role: "parent",         teamIds: [1,2],   playerIds: [2] }, // Sam plays on two teams
 ];
 
-// For demo: easily switch who is "logged in" to test permission boundaries
-const MOCK_USER = MOCK_USERS[0]; // Change index to test: 0=Coach, 1=Rosa(parent of Jamie), 2=Luis(parent of Sam)
+// For demo: switch index to test different roles
+// 0=Club Admin, 1=Coach Marcus, 2=Asst Coach Priya, 3=Manager Tom, 4=Rosa(parent/Jamie), 5=Luis(parent/Sam — 2 teams)
+const MOCK_USER = MOCK_USERS[1];
 
 const MOCK_TEAMS = [
-  { id: 1, name: "U12 Lions",   ageGroup: "U12", coachName: "Coach Marcus", playerCount: 14, settings: { trackPositions: true } },
-  { id: 2, name: "U14 Falcons", ageGroup: "U14", coachName: "Coach Priya",  playerCount: 16, settings: { trackPositions: true } },
-  { id: 3, name: "U10 Storm",   ageGroup: "U10", coachName: "Coach Dana",   playerCount: 12, settings: { trackPositions: false } },
+  { id: 1, name: "U12 Lions",   ageGroup: "U12", gender: "Boys",  coachName: "Coach Marcus", settings: { trackPositions: true } },
+  { id: 2, name: "U14 Falcons", ageGroup: "U14", gender: "Girls", coachName: "Coach Priya",  settings: { trackPositions: true } },
+  { id: 3, name: "U10 Storm",   ageGroup: "U10", gender: "Co-ed", coachName: "Coach Dana",   settings: { trackPositions: false } },
+];
+
+// Team memberships — players can belong to multiple teams
+const MOCK_TEAM_PLAYERS = [
+  // U12 Lions (teamId 1)
+  { teamId: 1, playerId: 1,  number: 1  },
+  { teamId: 1, playerId: 2,  number: 4  },
+  { teamId: 1, playerId: 3,  number: 5  },
+  { teamId: 1, playerId: 4,  number: 8  },
+  { teamId: 1, playerId: 5,  number: 10 },
+  { teamId: 1, playerId: 6,  number: 9  },
+  { teamId: 1, playerId: 7,  number: 11 },
+  { teamId: 1, playerId: 8,  number: 2  },
+  { teamId: 1, playerId: 9,  number: 6  },
+  { teamId: 1, playerId: 10, number: 7  },
+  { teamId: 1, playerId: 11, number: 3  },
+  { teamId: 1, playerId: 12, number: 12 },
+  // U14 Falcons (teamId 2) — Sam Rivera (id 2) also plays here
+  { teamId: 2, playerId: 2,  number: 7  },
+  { teamId: 2, playerId: 13, number: 1  },
+  { teamId: 2, playerId: 14, number: 4  },
+  { teamId: 2, playerId: 15, number: 9  },
+  // U10 Storm (teamId 3)
+  { teamId: 3, playerId: 16, number: 1  },
+  { teamId: 3, playerId: 17, number: 2  },
 ];
 
 const today = new Date();
@@ -145,10 +173,22 @@ const MOCK_PLAYERS = [
   { id: 12, name: "Peyton Hall",   number: 12, position: "GK",  photo: null, guardians: [{ name: "Greg Hall",    phone: "(412) 555-0214", email: "greg.hall@email.com",     relation: "Father" }] },
 ];
 
+// Extra players for U14 and U10 rosters
+const MOCK_EXTRA_PLAYERS = [
+  { id: 13, name: "Fallon Brady",   position: "GK",  photo: null, guardians: [{ name: "Kevin Brady",   phone: "(412) 555-0301", email: "kevin.brady@email.com",   relation: "Father" }] },
+  { id: 14, name: "Devon Marsh",    position: "MID", photo: null, guardians: [{ name: "Paula Marsh",   phone: "(412) 555-0302", email: "paula.marsh@email.com",   relation: "Mother" }] },
+  { id: 15, name: "Reese Coleman",  position: "FWD", photo: null, guardians: [{ name: "Andre Coleman", phone: "(412) 555-0303", email: "andre.coleman@email.com", relation: "Father" }] },
+  { id: 16, name: "Wren Flores",    position: "GK",  photo: null, guardians: [{ name: "Sofia Flores",  phone: "(412) 555-0401", email: "sofia.flores@email.com",  relation: "Mother" }] },
+  { id: 17, name: "Rory Okafor",    position: "DEF", photo: null, guardians: [{ name: "Emeka Okafor",  phone: "(412) 555-0402", email: "emeka.okafor@email.com",  relation: "Father" }] },
+];
+
+// All players combined
+const ALL_PLAYERS = [...MOCK_PLAYERS, ...MOCK_EXTRA_PLAYERS];
+
 const MOCK_STAFF = [
-  { id: 101, name: "Marcus Webb",   role: "coach",          email: "marcus@riverview.org", phone: "(412) 555-0101", photo: null },
-  { id: 102, name: "Priya Sharma",  role: "assistantCoach", email: "priya@riverview.org",  phone: "(412) 555-0102", photo: null },
-  { id: 103, name: "Tom Gallagher", role: "manager",        email: "tom@riverview.org",    phone: "(412) 555-0103", photo: null },
+  { id: 101, name: "Marcus Webb",   role: "coach",          teamId: 1, email: "marcus@riverview.org", phone: "(412) 555-0101", photo: null },
+  { id: 102, name: "Priya Sharma",  role: "assistantCoach", teamId: 1, email: "priya@riverview.org",  phone: "(412) 555-0102", photo: null },
+  { id: 103, name: "Tom Gallagher", role: "manager",        teamId: 1, email: "tom@riverview.org",    phone: "(412) 555-0103", photo: null },
 ];
 
 const MOCK_MESSAGES = [
@@ -193,9 +233,9 @@ const EVENT_BG      = { game: T.redLight, practice: T.blueLight, tournament: T.a
 const EVENT_LABELS  = { game: "GAME",   practice: "PRACTICE", tournament: "TOURNAMENT", other: "EVENT" };
 const POS_COLORS    = { GK: "#b45309",  DEF: "#1d4ed8",   MID: "#15803d",  FWD: "#b91c1c" };
 const POS_BG        = { GK: "#fef3c7",  DEF: "#dbeafe",   MID: "#dcfce7",  FWD: "#fee2e2" };
-const ROLE_LABELS   = { coach: "Head Coach", assistantCoach: "Assistant Coach", manager: "Team Manager" };
-const ROLE_COLORS   = { coach: T.blue,  assistantCoach: T.purple, manager: "#0891b2" };
-const ROLE_BG       = { coach: T.blueLight, assistantCoach: T.purpleLight, manager: "#ecfeff" };
+const ROLE_LABELS   = { clubAdmin: "Club Admin", coach: "Head Coach", assistantCoach: "Assistant Coach", manager: "Team Manager", parent: "Parent/Guardian" };
+const ROLE_COLORS   = { clubAdmin: "#059669", coach: T.blue, assistantCoach: T.purple, manager: "#0891b2", parent: T.textMid };
+const ROLE_BG       = { clubAdmin: "#ecfdf5", coach: T.blueLight, assistantCoach: T.purpleLight, manager: "#ecfeff", parent: T.surfaceAlt };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -281,7 +321,7 @@ function BottomNav({ active, onNavigate }) {
     { key: "home",     label: "Home",     icon: "⚡" },
     { key: "schedule", label: "Schedule", icon: "📅" },
     { key: "roster",   label: "Roster",   icon: "👥" },
-    { key: "chat",     label: "Chat",     icon: "💬" },
+    { key: "teams",    label: "Teams",    icon: "🏆" },
     { key: "more",     label: "More",     icon: "⋯" },
   ];
   return (
@@ -403,9 +443,11 @@ function LoginScreen({ onLogin }) {
 
 // ─── HOME SCREEN ─────────────────────────────────────────────────────────────
 
-function HomeScreen({ user, onNavigate }) {
-  const team       = MOCK_TEAMS.find((t) => t.id === user.teamId);
-  const events     = MOCK_EVENTS.filter((e) => e.teamId === user.teamId).sort((a, b) => a.date.localeCompare(b.date));
+function HomeScreen({ user, onNavigate, activeTeamId, onSwitchTeam }) {
+  const visibleTeams = getVisibleTeams(user);
+  const team       = MOCK_TEAMS.find((t) => t.id === activeTeamId);
+  const players    = getTeamPlayers(activeTeamId);
+  const events     = MOCK_EVENTS.filter((e) => e.teamId === activeTeamId).sort((a, b) => a.date.localeCompare(b.date));
   const nextEvent  = events[0];
   const upcoming   = events.slice(1, 4);
 
@@ -426,13 +468,15 @@ function HomeScreen({ user, onNavigate }) {
       </div>
 
       <div style={{ padding: "20px" }}>
-        {/* Team label */}
+        {/* Team label + switcher */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 24, color: T.text, letterSpacing: "-0.02em" }}>{team?.name}</div>
-            <div style={{ fontSize: 13, color: T.textMid }}>{team?.ageGroup} · {team?.playerCount} players · {user.role}</div>
+            <div style={{ fontSize: 13, color: T.textMid }}>{team?.ageGroup} · {team?.gender} · {players.length} players</div>
           </div>
-          <button onClick={() => onNavigate("teams")} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: "7px 12px", color: T.textMid, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Switch ▾</button>
+          {visibleTeams.length > 1 && (
+            <button onClick={() => onNavigate("teams")} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: "7px 12px", color: T.textMid, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Switch ▾</button>
+          )}
         </div>
 
         {/* Next event hero */}
@@ -523,15 +567,16 @@ function HomeScreen({ user, onNavigate }) {
 
 // ─── ROSTER SCREEN ───────────────────────────────────────────────────────────
 
-function RosterScreen({ user, onNavigate, teamSettings }) {
+function RosterScreen({ user, onNavigate, activeTeamId, teamSettings }) {
   const [expandedId, setExpandedId]     = useState(null);
   const [tab, setTab]                   = useState("players");
   const [playerPhotos, setPlayerPhotos] = useState({});
   const [staffPhotos,  setStaffPhotos]  = useState({});
 
-  const team = MOCK_TEAMS.find((t) => t.id === user.teamId);
+  const team = MOCK_TEAMS.find((t) => t.id === activeTeamId);
   const trackPositions = teamSettings.trackPositions;
-  const sorted = [...MOCK_PLAYERS].sort((a, b) => a.number - b.number);
+  const sorted = [...getTeamPlayers(activeTeamId)].sort((a, b) => a.number - b.number);
+  const teamStaff = MOCK_STAFF.filter((s) => s.teamId === activeTeamId);
   const toggle = (id) => setExpandedId((prev) => (prev === id ? null : id));
 
   const canEditPlayerPhoto = (playerId) => {
@@ -557,7 +602,7 @@ function RosterScreen({ user, onNavigate, teamSettings }) {
         <div style={{ display: "flex", borderBottom: `1px solid ${T.border}` }}>
           {["players", "staff"].map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{ flex: 1, background: "none", border: "none", borderBottom: tab === t ? `2.5px solid ${T.blue}` : "2.5px solid transparent", color: tab === t ? T.blue : T.textSoft, fontWeight: 600, fontSize: 13, padding: "10px 0 11px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-              {t === "players" ? `Players (${MOCK_PLAYERS.length})` : `Staff (${MOCK_STAFF.length})`}
+              {t === "players" ? `Players (${sorted.length})` : `Staff (${teamStaff.length})`}
             </button>
           ))}
         </div>
@@ -636,7 +681,7 @@ function RosterScreen({ user, onNavigate, teamSettings }) {
         {/* ── STAFF ── */}
         {tab === "staff" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {MOCK_STAFF.map((member) => {
+            {teamStaff.map((member) => {
               const color = ROLE_COLORS[member.role] ?? T.blue;
               const bg    = ROLE_BG[member.role]    ?? T.blueLight;
               const label = ROLE_LABELS[member.role] ?? member.role;
@@ -681,13 +726,13 @@ const RSVP_META = {
   noResponse: { label: "No Reply",   color: T.textSoft, bg: T.surfaceAlt, icon: "—" },
 };
 
-function ScheduleScreen({ user, onNavigate }) {
+function ScheduleScreen({ user, onNavigate, activeTeamId }) {
   const [expandedId, setExpandedId] = useState(null);
-  const [filter, setFilter]         = useState("all"); // all | game | practice | tournament
+  const [filter, setFilter]         = useState("all");
 
-  const team   = MOCK_TEAMS.find((t) => t.id === user.teamId);
+  const team   = MOCK_TEAMS.find((t) => t.id === activeTeamId);
   const events = MOCK_EVENTS
-    .filter((e) => e.teamId === user.teamId)
+    .filter((e) => e.teamId === activeTeamId)
     .filter((e) => filter === "all" || e.type === filter)
     .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -1099,6 +1144,169 @@ function MoreScreen({ user, onNavigate, teamSettings, setTeamSettings }) {
   );
 }
 
+// ─── TEAMS SCREEN ────────────────────────────────────────────────────────────
+
+const AGE_GROUPS = ["U6","U7","U8","U9","U10","U11","U12","U13","U14","U15","U16","U17","U18","Adult"];
+const GENDERS    = ["Boys","Girls","Co-ed"];
+
+function TeamsScreen({ user, onNavigate, activeTeamId, onSwitchTeam, teamSettings, setTeamSettings }) {
+  const isAdmin = isClubAdmin(user);
+  const visibleTeams = getVisibleTeams(user);
+
+  // Local state for add/edit modal
+  const [editing,   setEditing]   = useState(null);  // null | "new" | teamId
+  const [draftTeam, setDraftTeam] = useState({});
+  const [localTeams, setLocalTeams] = useState(MOCK_TEAMS);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const visibleLocal = isAdmin ? localTeams : localTeams.filter((t) => (user.teamIds ?? []).includes(t.id));
+
+  const openNew  = () => { setDraftTeam({ name: "", ageGroup: "U12", gender: "Boys" }); setEditing("new"); };
+  const openEdit = (team) => { setDraftTeam({ ...team }); setEditing(team.id); };
+  const saveTeam = () => {
+    if (!draftTeam.name.trim()) return;
+    if (editing === "new") {
+      const newId = Math.max(...localTeams.map(t => t.id)) + 1;
+      setLocalTeams(prev => [...prev, { ...draftTeam, id: newId, settings: { trackPositions: true } }]);
+    } else {
+      setLocalTeams(prev => prev.map(t => t.id === editing ? { ...t, ...draftTeam } : t));
+    }
+    setEditing(null);
+  };
+  const deleteTeam = (id) => {
+    setLocalTeams(prev => prev.filter(t => t.id !== id));
+    setConfirmDelete(null);
+    if (activeTeamId === id && visibleLocal.length > 1) {
+      onSwitchTeam(visibleLocal.find(t => t.id !== id)?.id ?? 1);
+    }
+  };
+
+  const inp = { width: "100%", background: T.surface, border: `1.5px solid ${T.blueMid}`, borderRadius: 10, padding: "11px 14px", color: T.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", paddingBottom: 90 }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap'); * { box-sizing: border-box; } .tap:active{opacity:0.75;}`}</style>
+
+      {/* Header */}
+      <div style={{ background: T.headerBg, borderBottom: `1px solid ${T.border}`, padding: "14px 20px", position: "sticky", top: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 22, color: T.text, letterSpacing: "-0.02em" }}>Teams</div>
+          <div style={{ fontSize: 12, color: T.textSoft }}>{MOCK_CLUB.name}</div>
+        </div>
+        {isAdmin && (
+          <button onClick={openNew} style={{ background: T.blue, border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>+ New Team</button>
+        )}
+      </div>
+
+      <div style={{ padding: "16px 20px" }}>
+
+        {/* Role context note */}
+        {isAdmin && (
+          <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#065f46", fontWeight: 500 }}>
+            👑 You're viewing all teams as Club Admin. Tap a team to switch to it, or use the edit controls to manage.
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {visibleLocal.map((team) => {
+            const players = getTeamPlayers(team.id);
+            const isActive = team.id === activeTeamId;
+            const roleColor  = ROLE_COLORS["coach"];
+
+            return (
+              <div key={team.id} style={{ background: T.surface, border: `2px solid ${isActive ? T.blue : T.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isActive ? `0 2px 12px ${T.blue}20` : "0 1px 4px #0001" }}>
+
+                {/* Team row — tap to switch */}
+                <div onClick={() => onSwitchTeam(team.id)} className="tap" style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px", cursor: "pointer" }}>
+                  {/* Color badge */}
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: isActive ? T.blueLight : T.surfaceAlt, border: `1.5px solid ${isActive ? T.blue+"40" : T.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: isActive ? T.blue : T.textSoft, letterSpacing: "0.05em" }}>{team.gender?.slice(0,1) ?? "–"}</div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 15, color: isActive ? T.blue : T.text }}>{team.ageGroup}</div>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{team.name}</div>
+                      {isActive && <div style={{ fontSize: 10, fontWeight: 700, color: T.blue, background: T.blueLight, border: `1px solid ${T.blueMid}`, borderRadius: 5, padding: "1px 7px", letterSpacing: "0.06em" }}>ACTIVE</div>}
+                    </div>
+                    <div style={{ fontSize: 12, color: T.textSoft, marginTop: 2 }}>
+                      {team.gender} · {team.ageGroup} · {players.length} player{players.length !== 1 ? "s" : ""}
+                    </div>
+                    <div style={{ fontSize: 12, color: T.textSoft }}>{team.coachName}</div>
+                  </div>
+
+                  {/* Admin actions */}
+                  {isAdmin ? (
+                    <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => openEdit(team)} style={{ background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14 }}>✏️</button>
+                      <button onClick={() => setConfirmDelete(team.id)} style={{ background: T.redLight, border: `1px solid ${T.red}20`, borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14 }}>🗑️</button>
+                    </div>
+                  ) : (
+                    <div style={{ color: T.textSoft, fontSize: 14 }}>{isActive ? "✓" : "›"}</div>
+                  )}
+                </div>
+
+                {/* Delete confirmation inline */}
+                {confirmDelete === team.id && (
+                  <div style={{ borderTop: `1px solid ${T.border}`, padding: "12px 16px", background: T.redLight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div style={{ fontSize: 13, color: T.red, fontWeight: 600 }}>Delete "{team.name}"? This can't be undone.</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setConfirmDelete(null)} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, color: T.textMid, cursor: "pointer" }}>Cancel</button>
+                      <button onClick={() => deleteTeam(team.id)} style={{ background: T.red, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, color: "#fff", cursor: "pointer" }}>Delete</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Add / Edit modal */}
+      {editing !== null && (
+        <div style={{ position: "fixed", inset: 0, background: "#0007", zIndex: 100, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: T.surface, borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", boxShadow: "0 -4px 30px #0002" }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 20, color: T.text, marginBottom: 20 }}>
+              {editing === "new" ? "New Team" : "Edit Team"}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.textSoft, letterSpacing: "0.1em", marginBottom: 7 }}>TEAM NAME</div>
+                <input value={draftTeam.name ?? ""} onChange={(e) => setDraftTeam(d => ({ ...d, name: e.target.value }))} placeholder="e.g. U12 Lions" style={inp} />
+              </div>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: T.textSoft, letterSpacing: "0.1em", marginBottom: 7 }}>AGE GROUP</div>
+                  <select value={draftTeam.ageGroup ?? "U12"} onChange={(e) => setDraftTeam(d => ({ ...d, ageGroup: e.target.value }))} style={{ ...inp, appearance: "none" }}>
+                    {AGE_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: T.textSoft, letterSpacing: "0.1em", marginBottom: 7 }}>GENDER</div>
+                  <select value={draftTeam.gender ?? "Boys"} onChange={(e) => setDraftTeam(d => ({ ...d, gender: e.target.value }))} style={{ ...inp, appearance: "none" }}>
+                    {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button onClick={() => setEditing(null)} style={{ flex: 1, background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 12, padding: "13px", color: T.textMid, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+                <button onClick={saveTeam} disabled={!draftTeam.name?.trim()} style={{ flex: 2, background: draftTeam.name?.trim() ? T.blue : T.border, border: "none", borderRadius: 12, padding: "13px", color: "#fff", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 14, cursor: draftTeam.name?.trim() ? "pointer" : "not-allowed" }}>
+                  {editing === "new" ? "Create Team" : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav active="teams" onNavigate={onNavigate} />
+    </div>
+  );
+}
+
 // ─── PLACEHOLDER SCREEN ──────────────────────────────────────────────────────
 
 function PlaceholderScreen({ title, icon, onNavigate, navKey }) {
@@ -1116,27 +1324,59 @@ function PlaceholderScreen({ title, icon, onNavigate, navKey }) {
   );
 }
 
+// ─── PERMISSION HELPERS ──────────────────────────────────────────────────────
+
+const isClubAdmin = (user) => user.role === "clubAdmin";
+const isCoachOrAbove = (user) => ["clubAdmin","coach","assistantCoach","manager"].includes(user.role);
+const canEditPlayer = (user, playerId) => isClubAdmin(user) || (user.role === "parent" && (user.playerIds ?? []).includes(playerId));
+const canEditStaff  = (user, staffId)  => isClubAdmin(user) || user.staffId === staffId;
+const canEditTeam   = (user) => isClubAdmin(user);
+
+// Get teams visible to this user
+const getVisibleTeams = (user) => {
+  if (isClubAdmin(user)) return MOCK_TEAMS;
+  return MOCK_TEAMS.filter((t) => (user.teamIds ?? []).includes(t.id));
+};
+
+// Get players for a given team
+const getTeamPlayers = (teamId) => {
+  const memberships = MOCK_TEAM_PLAYERS.filter((m) => m.teamId === teamId);
+  return memberships.map((m) => {
+    const player = ALL_PLAYERS.find((p) => p.id === m.playerId);
+    return player ? { ...player, number: m.number } : null;
+  }).filter(Boolean);
+};
+
 // ─── APP SHELL ───────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [user,         setUser]         = useState(null);
-  const [screen,       setScreen]       = useState("home");
-  const [teamSettings, setTeamSettings] = useState({ trackPositions: true });
+  // ⚠️ TESTING: auto-login, restore login screen before launch
+  const [user,          setUser]         = useState(MOCK_USER);
+  const [screen,        setScreen]       = useState("home");
+  const [activeTeamId,  setActiveTeamId] = useState(MOCK_USER.teamIds?.[0] ?? 1);
+  const [teamSettings,  setTeamSettings] = useState(
+    MOCK_TEAMS.find((t) => t.id === (MOCK_USER.teamIds?.[0] ?? 1))?.settings ?? { trackPositions: true }
+  );
 
   const handleNavigate = (dest) => setScreen(dest);
   const handleUserUpdate = (updatedUser) => setUser(updatedUser);
+  const handleSwitchTeam = (teamId) => {
+    setActiveTeamId(teamId);
+    setTeamSettings(MOCK_TEAMS.find((t) => t.id === teamId)?.settings ?? { trackPositions: true });
+    setScreen("home");
+  };
 
-  if (!user) return <LoginScreen onLogin={(u) => {
-    const team = MOCK_TEAMS.find((t) => t.id === u.teamId);
-    if (team?.settings) setTeamSettings(team.settings);
-    setUser(u); setScreen("home");
-  }} />;
-  if (screen === "home")     return <HomeScreen     user={user} onNavigate={handleNavigate} />;
-  if (screen === "roster")   return <RosterScreen   user={user} onNavigate={handleNavigate} teamSettings={teamSettings} />;
-  if (screen === "schedule") return <ScheduleScreen user={user} onNavigate={handleNavigate} />;
+  // Uncomment to re-enable login:
+  // if (!user) return <LoginScreen onLogin={(u) => { setUser(u); setActiveTeamId(u.teamIds?.[0] ?? 1); setScreen("home"); }} />;
+
+  const sharedProps = { user, onNavigate: handleNavigate, activeTeamId };
+
+  if (screen === "home")     return <HomeScreen     {...sharedProps} onSwitchTeam={handleSwitchTeam} />;
+  if (screen === "roster")   return <RosterScreen   {...sharedProps} teamSettings={teamSettings} />;
+  if (screen === "schedule") return <ScheduleScreen {...sharedProps} />;
   if (screen === "chat")     return <PlaceholderScreen title="Chat" icon="💬" navKey="chat" onNavigate={handleNavigate} />;
-  if (screen === "teams")    return <PlaceholderScreen title="Teams" icon="🏆" navKey="more" onNavigate={handleNavigate} />;
-  if (screen === "more")     return <MoreScreen     user={user} onNavigate={handleNavigate} teamSettings={teamSettings} setTeamSettings={setTeamSettings} />;
+  if (screen === "teams")    return <TeamsScreen    {...sharedProps} onSwitchTeam={handleSwitchTeam} teamSettings={teamSettings} setTeamSettings={setTeamSettings} />;
+  if (screen === "more")     return <MoreScreen     {...sharedProps} teamSettings={teamSettings} setTeamSettings={setTeamSettings} />;
   if (screen === "profile")  return <ProfileScreen  user={user} onUserUpdate={handleUserUpdate} onNavigate={handleNavigate} />;
-  return <HomeScreen user={user} onNavigate={handleNavigate} />;
+  return <HomeScreen {...sharedProps} onSwitchTeam={handleSwitchTeam} />;
 }
